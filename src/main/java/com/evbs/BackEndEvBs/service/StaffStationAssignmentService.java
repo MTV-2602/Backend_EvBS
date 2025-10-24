@@ -36,7 +36,7 @@ public class StaffStationAssignmentService {
     private static final int MAX_STATIONS_PER_STAFF = 5;
 
     // Giới hạn số staff tối đa 1 trạm có thể có
-    private static final int MAX_STAFF_PER_STATION = 2;
+    private static final int MAX_STAFF_PER_STATION = 3;
 
     /**
      * CREATE - Admin assign station cho staff
@@ -45,7 +45,7 @@ public class StaffStationAssignmentService {
     public StaffStationAssignment assignStaffToStation(StaffStationAssignmentRequest request) {
         User currentAdmin = authenticationService.getCurrentUser();
 
-        // ✅ Chỉ Admin mới có quyền assign
+        //  Chỉ Admin mới có quyền assign
         if (currentAdmin.getRole() != User.Role.ADMIN) {
             throw new AuthenticationException("Access denied. Only admins can assign staff to stations.");
         }
@@ -76,7 +76,7 @@ public class StaffStationAssignmentService {
             );
         }
 
-        // ✅ Kiểm tra số lượng staff của station (max 2)
+        //  Kiểm tra số lượng staff của station (max 2)
         long staffCountAtStation = assignmentRepository.countByStation(station);
         if (staffCountAtStation >= MAX_STAFF_PER_STATION) {
             throw new AuthenticationException(
@@ -101,7 +101,7 @@ public class StaffStationAssignmentService {
     public void unassignStaffFromStation(Long staffId, Long stationId) {
         User currentAdmin = authenticationService.getCurrentUser();
 
-        // ✅ Chỉ Admin mới có quyền unassign
+        //  Chỉ Admin mới có quyền unassign
         if (currentAdmin.getRole() != User.Role.ADMIN) {
             throw new AuthenticationException("Access denied. Only admins can unassign staff from stations.");
         }
@@ -228,5 +228,34 @@ public class StaffStationAssignmentService {
         }
         
         throw new AuthenticationException("Access denied");
+    }
+
+    /**
+     * FILTER - Lọc batteries theo stations mà staff được phép quản lý
+     * Admin: xem tất cả
+     * Staff: chỉ xem batteries của stations mình được assign
+     */
+    public List<com.evbs.BackEndEvBs.entity.Battery> filterBatteriesByStaffStations(List<com.evbs.BackEndEvBs.entity.Battery> batteries) {
+        User currentUser = authenticationService.getCurrentUser();
+        
+        // Admin xem tất cả
+        if (currentUser.getRole() == User.Role.ADMIN) {
+            return batteries;
+        }
+        
+        // Staff chỉ xem batteries của stations mình quản lý
+        if (currentUser.getRole() == User.Role.STAFF) {
+            List<Station> myStations = assignmentRepository.findStationsByStaff(currentUser);
+            List<Long> myStationIds = myStations.stream()
+                    .map(Station::getId)
+                    .collect(java.util.stream.Collectors.toList());
+            
+            return batteries.stream()
+                    .filter(b -> b.getCurrentStation() != null && myStationIds.contains(b.getCurrentStation().getId()))
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        
+        // Các role khác không có quyền
+        return List.of();
     }
 }
