@@ -47,10 +47,11 @@ public class BookingController {
 
     /**
      * POST /api/booking : Create new booking (Driver)
+     * System automatically sets booking time to 3 hours from now
      */
     @PostMapping
     @Operation(summary = "Create new booking",
-            description = "Create a new booking. System automatically validates battery type compatibility between vehicle and station.")
+            description = "Create a new booking. System automatically sets booking time to 3 hours from now and validates battery type compatibility.")
     public ResponseEntity<Booking> createBooking(@Valid @RequestBody BookingRequest request) {
         Booking booking = bookingService.createBooking(request);
         return new ResponseEntity<>(booking, HttpStatus.CREATED);
@@ -80,10 +81,11 @@ public class BookingController {
 
     /**
      * PATCH /api/booking/my-bookings/{id}/cancel : Cancel my booking (Driver)
+     * Only allowed to cancel before 1 hour of booking time
      */
     @PatchMapping("/my-bookings/{id}/cancel")
     @Operation(summary = "Cancel my booking",
-            description = "Cancel a booking. Only PENDING bookings can be cancelled by driver.")
+            description = "Cancel a booking. Only allowed to cancel before 1 hour of booking time.")
     public ResponseEntity<Booking> cancelMyBooking(@PathVariable Long id) {
         Booking booking = bookingService.cancelMyBooking(id);
         return ResponseEntity.ok(booking);
@@ -102,8 +104,6 @@ public class BookingController {
         List<Booking> bookings = bookingService.getAllBookings();
         return ResponseEntity.ok(bookings);
     }
-
-    // ==================== UTILITY ENDPOINTS ====================
 
     /**
      * GET /api/booking/station/{stationId} : Get bookings by station (Admin/Staff only)
@@ -153,21 +153,6 @@ public class BookingController {
     // ==================== STAFF CONFIRMATION CODE ENDPOINTS ====================
 
     /**
-     * PATCH /api/booking/{id}/confirm : Confirm booking by ID (Staff/Admin only)
-     *
-     * Staff/Admin confirm booking → Generate mã xác nhận → Trả cho driver
-     * PENDING → CONFIRMED (với confirmationCode mới)
-     */
-    @PatchMapping("/{id}/confirm")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('STAFF')")
-    @Operation(summary = "Confirm booking and generate confirmation code",
-            description = "Staff/Admin xác nhận booking, hệ thống tự động tạo mã 6 ký tự (ABC123) cho driver")
-    public ResponseEntity<Booking> confirmBooking(@PathVariable Long id) {
-        Booking booking = bookingService.confirmBookingById(id);
-        return ResponseEntity.ok(booking);
-    }
-
-    /**
      * DELETE /api/booking/staff/{id}/cancel : Cancel booking by Staff/Admin (Special cases)
      *
      * Staff/Admin co the huy bat ky booking nao (PENDING hoac CONFIRMED)
@@ -176,7 +161,6 @@ public class BookingController {
      * Neu huy CONFIRMED booking:
      * - Giai phong pin ve AVAILABLE
      * - KHONG TRU luot swap cua driver (loi tu phia tram)
-
      */
     @DeleteMapping("/staff/{id}/cancel")
     @PreAuthorize("hasRole('ADMIN') or hasRole('STAFF')")
